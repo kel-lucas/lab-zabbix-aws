@@ -55,12 +55,23 @@ Vá em **VPC** -> **Security Groups**.
     * `SSH (22)` -> Source: **My IP** (Seu acesso).
     * `HTTP (80)` -> Source: **My IP** (Seu acesso ao painel web).
     * `Custom TCP (10051)` -> Source: `10.0.0.0/16` (Permite agentes da rede enviarem dados).
+* **Outbound Rules (Saída):**
+    * `HTTP TCP (80)` -> Source: `0.0.0.0/0`. (Acesso a internet, através do HTTP).
+    * `HTTPS TCP (443)` -> Source: `0.0.0.0/0`. (Acesso a internet, mas através do HTTPS).
+    * `DNS TCP (53)` -> Source: `0.0.0.0/0`. (Consulta de nomes).
+    * `DNS UDP (53)` -> Source: `0.0.0.0/0`. (COnsulta de nomes).
+    * `Custom UDP (123)` -> Source: `0.0.0.0/0`. (Sincronização do tempo.Essencial para o Zabbix e banco de dados).
 
 #### Grupo 2: `sg_dhcp_alvo`
 * **Inbound Rules (Entrada):**
     * `SSH (22)` -> Source: **My IP**.
     * `Custom TCP (10050)` -> Source: Selecione o grupo `sg_zabbix_server`.
-
+* **Outbound Rules (Saída):**
+    * `HTTP TCP (80)` -> Source: `0.0.0.0/0`. (Acesso a internet, através do HTTP).
+    * `HTTPS TCP (443)` -> Source: `0.0.0.0/0`. (Acesso a internet, mas através do HTTPS).
+    * `DNS TCP (53)` -> Source: `0.0.0.0/0`. (Consulta de nomes).
+    * `DNS UDP (53)` -> Source: `0.0.0.0/0`. (COnsulta de nomes).
+    * `Custom UDP (123)` -> Source: `0.0.0.0/0`. (Sincronização do tempo.Essencial para o Zabbix e banco de dados).
 ---
 
 ### 💻 Passo 3: Criar as Instâncias (EC2)
@@ -69,21 +80,24 @@ Vá para **EC2** -> **Launch Instances**.
 #### Servidor 1: Zabbix Server
 * **Name:** `SRV-ZABBIX`
 * **OS:** Ubuntu Server 24.04 LTS.
-* **Instance Type:** `t2.micro` ou `t3.micro` (Free tier eligible).
+* **Instance Type:** `t3.large` (PARE AS INSTÂNCIAS IMEDIATAMENTE APÓS O TESTE.).
 * **Key Pair:** Crie uma nova (ex: `chave-lab`) e baixe o `.pem`.
 * **Network Settings:**
     * VPC: `lab-zabbix`
     * Subnet: Public Subnet
     * Auto-assign Public IP: **Enable**
     * Security Group: `sg_zabbix_server`
-* **Storage:** 20 GB gp3.
+* **Storage:** 25 GB gp3.
 
 #### Servidor 2: DHCP Server (Monitorado)
 * **Name:** `SRV-DHCP`
 * **OS/Instance Type/Key Pair:** Mesmos do acima.
 * **Network Settings:**
+    * VPC: `lab-zabbix`
+    * Subnet: Public Subnet
+    * Auto-assign Public IP: **Enable**
     * Security Group: `sg_dhcp_alvo`
-* **Storage:** 10 GB gp3.
+* **Storage:** 15 GB gp3.
 
 ---
 
@@ -147,7 +161,7 @@ Acesse o `SRV-DHCP` via SSH.
 
 3.  **Configure o Agente:**
     * Edite: `sudo nano /etc/zabbix/zabbix_agentd.conf`
-    * `Server=IP_PRIVADO_DO_ZABBIX` (ex: 10.0.X.X)
+    * `Server=IP_PRIVADO_DO_SRV-ZABBIX` (ex: 10.0.X.X)
     * `Hostname=SRV-DHCP`
 
 4.  **Reinicie o agente:**
@@ -160,7 +174,7 @@ Acesse o `SRV-DHCP` via SSH.
 
 ### 🖥️ Passo 6: Configuração Visual (Frontend)
 
-1.  Acesse `http://IP-PUBLICO-DO-ZABBIX/zabbix`.
+1.  Acesse `http://IP-PUBLICO-DO-SRV-ZABBIX/zabbix`.
 2.  Siga o setup (Login: `Admin` / `zabbix`).
 3.  Vá em **Data collection** -> **Hosts** -> **Create Host**.
     * **Host name:** `SRV-DHCP`
@@ -173,9 +187,15 @@ Acesse o `SRV-DHCP` via SSH.
 2.  **Name:** `Status do DHCP`
 3.  **Key:** `proc.num[dhcpd]`
 
+**Para monitorar o processo SSH:**
+1.  No host SRV-DHCP, vá em **Items** -> **Create Item**.
+2.  **Name:** `Status do SSH`
+3.  **Key:** `proc.num[sshd]`
 ---
+
+**Achei necessário para comparar se o Zabbix estava monitorando os serviços. O serviço de DHCP irá retornar 0, pois o serviço está em erro. O serviço do SSH, pelo contrário, irá retornar 0>, pois o mesmo está sendo executado**
 
 ### 💡 Dica de Ouro para Economia
 
 * **Pare as instâncias:** Quando terminar de estudar, vá no console EC2 -> Instance State -> **Stop Instance**.
-* **Custo:** Máquina parada não cobra processamento, apenas o armazenamento (que é barato e coberto pelo Free Tier até 30GB).
+* **Custo:** 
